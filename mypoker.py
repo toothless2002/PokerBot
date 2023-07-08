@@ -214,6 +214,8 @@ class NL_Holdem:
         print("river is",river_card[0])
         self.one_round_of_betting(smallblind,bets,in_hand_players)
 
+
+
 n = NL_Holdem(200,6)
 hamid = Player("harry")
 parnaz = Player("pary")
