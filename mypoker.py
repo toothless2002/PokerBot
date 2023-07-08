@@ -145,13 +145,13 @@ class NL_Holdem:
         self.players[table_num]=[balance,player_obj,False,"",""]
         self.num_players = self.num_players + 1
         self.game_status = self.game_status + 1
-        if (self.game_status == 2):
-           self.deal_hand()
+        # if (self.game_status == 2):
+        #    self.deal_hand()
 
     def next_player(self,in_hand_players,p):
-       for i in in_hand_players:
-          if (i == p ):
-            return (i+1)% len(in_hand_players)
+       for i in range(self.number_tables):
+          if ((p+1+i)%self.number_tables in in_hand_players):
+            return (p+1+i)%self.number_tables
           
     def bet(self,bets:list,player,amount):
        self.players[player][0] = self.players[player][0] - amount 
@@ -159,15 +159,49 @@ class NL_Holdem:
        self.pot = self.pot + amount 
        print(str(player)+" betted "+str(amount)," pot is "+str(self.pot)+"\n")
 
-    def one_round_of_betting(self,cur_player,bets:list,in_hand_players):
-       start_player = cur_player
+    def one_round_of_betting(self,cur_player,bets:list,in_hand_players:list,bet_amount,last_player_check):
        while(True):
-          print("player " ,cur_player , " put in your bet\n")
-          b = int(input())
-          self.bet(bets,cur_player,b)
-          cur_player = self.next_player(in_hand_players,cur_player)
-          if (cur_player == start_player):
-             break
+          if (bet_amount >= self.players[cur_player][0]):
+             print("player" ,cur_player ,"all-in or fold")
+             b = input()
+             if (b.startswith("fold")):
+                prv_player = cur_player
+                cur_player = self.next_player(in_hand_players,cur_player)
+                in_hand_players.remove(prv_player)
+                if (cur_player == last_player_check):
+                  break
+             elif (b.startswith("all-in")):
+                self.bet(bets,cur_player,self.players[cur_player][0])
+                cur_player = self.next_player(in_hand_players,cur_player)
+                if (cur_player == last_player_check):
+                  break
+             else:
+                print("invalid input")
+          else:
+            print("player " ,cur_player , "fold or call or raise")
+            b = input()
+            if (b.startswith("fold")):
+                prv_player = cur_player
+                cur_player = self.next_player(in_hand_players,cur_player)
+                in_hand_players.remove(prv_player)
+                print ("rest of players", in_hand_players)
+                if (cur_player == last_player_check):
+                  break
+            if (b.startswith("call")):
+               self.bet(bets,cur_player,bet_amount - bets[cur_player])
+               cur_player = self.next_player(in_hand_players,cur_player)
+               print (cur_player ,"called ",last_player_check)
+               if (cur_player == last_player_check):
+                  break
+            if (b.startswith("raise")):
+               new_bet = int(b[6:])
+               bet_amount = new_bet+bet_amount
+               self.bet(bets,cur_player,bet_amount)
+               bet_amount = self.one_round_of_betting(self.next_player(in_hand_players,cur_player),bets,in_hand_players,bet_amount,cur_player)
+               break
+       return bet_amount
+
+            
 
     def deal_hand(self):
         self.deck.shuffle()
@@ -193,7 +227,7 @@ class NL_Holdem:
         if(self.game_status == 4):        
             for x in in_hand_players:
               if (self.players[x][2] == False):
-                  self.bet(bets, x, self.stack_size_bb)
+                  ##self.bet(bets, x, self.stack_size_bb)
                   self.players[x][2] = True
 
         for x in in_hand_players:
@@ -206,19 +240,29 @@ class NL_Holdem:
       ## dael flop 
         flop_cards = self.deck.deal_three()
         print ("flop is",flop_cards[0],flop_cards[1],flop_cards[2])
-        self.one_round_of_betting(after_bigblind,bets,in_hand_players)
+        bet_size =self.one_round_of_betting(after_bigblind,bets,in_hand_players,self.stack_size_bb,after_bigblind)
         turn_card = self.deck.deal_one()
         print ("turn is",turn_card[0])
-        self.one_round_of_betting(smallblind,bets,in_hand_players)
+        if(smallblind not in in_hand_players):
+           smallblind = self.next_player(in_hand_players,smallblind)
+        bet_size = self.one_round_of_betting(smallblind,bets,in_hand_players ,bet_size,smallblind)
         river_card = self.deck.deal_one()
         print("river is",river_card[0])
-        self.one_round_of_betting(smallblind,bets,in_hand_players)
-
+        if(smallblind not in in_hand_players):
+           smallblind = self.next_player(in_hand_players,smallblind)
+        bet_size = self.one_round_of_betting(smallblind,bets,in_hand_players,bet_size,smallblind)
+        
 
 
 n = NL_Holdem(200,6)
 hamid = Player("harry")
 parnaz = Player("pary")
 mohsen = Player("msn")
+sina = Player("Qane")
+darya = Player("kenar")
+amir = Player("dawsham")
 n.add_player(0,2000,hamid)
 n.add_player(1,2000,parnaz)
+n.add_player(2,3000,mohsen)
+n.add_player(3,3000,sina)
+n.deal_hand()
