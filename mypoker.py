@@ -1,6 +1,6 @@
 import random
-
-
+import math
+import itertools
 
 class Poker_Table :
     def __init__(self,number_tables = 6,stack_size_bb = 200,game_type = "NL_Holdem") -> None:
@@ -177,28 +177,47 @@ class NL_Holdem:
                   break
              else:
                 print("invalid input")
-          else:
+          if(bet_amount == 0 or bet_amount == bets[cur_player]):
+            print("player ",cur_player, "check or raise")
+            b = input()
+            if (b.startswith("check")):
+              self.bet(bets,cur_player,0 )
+              cur_player = self.next_player(in_hand_players,cur_player)
+              if (cur_player == last_player_check):
+                  break
+            elif (b.startswith("raise")):
+               new_bet = int(b[6:])
+               bet_amount = new_bet+bet_amount
+               self.bet(bets,cur_player,bet_amount)
+               bet_amount = self.one_round_of_betting(self.next_player(in_hand_players,cur_player),bets,in_hand_players,bet_amount,cur_player)
+               break
+            else:
+                print("invalid input")
+          else :
             print("player " ,cur_player , "fold or call or raise")
             b = input()
             if (b.startswith("fold")):
                 prv_player = cur_player
                 cur_player = self.next_player(in_hand_players,cur_player)
                 in_hand_players.remove(prv_player)
-                print ("rest of players", in_hand_players)
+                if (last_player_check == prv_player):
+                  last_player_check = self.next_player(in_hand_players,prv_player)
+                  continue
                 if (cur_player == last_player_check):
                   break
-            if (b.startswith("call")):
-               self.bet(bets,cur_player,bet_amount - bets[cur_player])
+            elif (b.startswith("call")):
+               self.bet(bets,cur_player,bet_amount-bets[cur_player])
                cur_player = self.next_player(in_hand_players,cur_player)
-               print (cur_player ,"called ",last_player_check)
                if (cur_player == last_player_check):
                   break
-            if (b.startswith("raise")):
+            elif (b.startswith("raise")):
                new_bet = int(b[6:])
-               bet_amount = new_bet+bet_amount
-               self.bet(bets,cur_player,bet_amount)
+               bet_amount = new_bet + bets[cur_player]
+               self.bet(bets,cur_player,new_bet)
                bet_amount = self.one_round_of_betting(self.next_player(in_hand_players,cur_player),bets,in_hand_players,bet_amount,cur_player)
                break
+            else:
+                print("invalid input")
        return bet_amount
 
             
@@ -222,8 +241,8 @@ class NL_Holdem:
         self.bet(bets, smallblind, self.stack_size_bb/2)
         bigblind = self.next_player(in_hand_players,smallblind)
         self.bet(bets, bigblind, self.stack_size_bb)
-        after_bigblind = self.next_player(in_hand_players,bigblind)
-              
+        after_bigblind = self.next_player(in_hand_players,bigblind)  
+
         if(self.game_status == 4):        
             for x in in_hand_players:
               if (self.players[x][2] == False):
@@ -234,10 +253,10 @@ class NL_Holdem:
            p_cards = self.deck.deal_two()
            print ("player " + str(x) + " your cards are : ",p_cards[0],p_cards[1])
            self.players[x][3] =p_cards[0]
-           self.players[x][4] =p_cards[1]
-           
-        
+           self.players[x][4] =p_cards[1] 
+
       ## dael flop 
+
         flop_cards = self.deck.deal_three()
         print ("flop is",flop_cards[0],flop_cards[1],flop_cards[2])
         bet_size =self.one_round_of_betting(after_bigblind,bets,in_hand_players,self.stack_size_bb,after_bigblind)
@@ -245,13 +264,237 @@ class NL_Holdem:
         print ("turn is",turn_card[0])
         if(smallblind not in in_hand_players):
            smallblind = self.next_player(in_hand_players,smallblind)
-        bet_size = self.one_round_of_betting(smallblind,bets,in_hand_players ,bet_size,smallblind)
+        bet_size = self.one_round_of_betting(smallblind,bets,in_hand_players ,0,smallblind)
         river_card = self.deck.deal_one()
         print("river is",river_card[0])
         if(smallblind not in in_hand_players):
            smallblind = self.next_player(in_hand_players,smallblind)
-        bet_size = self.one_round_of_betting(smallblind,bets,in_hand_players,bet_size,smallblind)
+        bet_size = self.one_round_of_betting(smallblind,bets,in_hand_players,0,smallblind)
+        table_cards = [flop_cards[0],flop_cards[1],flop_cards[2],turn_card[0],river_card[0]]
+        print("table cards :",*table_cards)
+        best_score=0
+        best_hand = []
+        winners = []
+        for finial_players in in_hand_players :
+          seven_cards = table_cards.copy()
+          seven_cards.append(self.players[finial_players][3])
+          seven_cards.append(self.players[finial_players][4])
+          five_card_combs = (list(itertools.chain.from_iterable(itertools.combinations(seven_cards,r)for r in range(5,6))))
+          max_point = 0 
+          max_hand = []
+          for combs in five_card_combs :
+            combs = sorted(combs,reverse=True)
+            cur_point = self.isRoyal(combs)
+            if(cur_point > max_point):
+              max_point = cur_point
+              max_hand = combs
+          print("best hand is :  ",*max_hand)
+          if (best_score ==  max_point):
+            winners.append(finial_players)
+          if (best_score < max_point):
+            winners.clear()
+            winners.append(finial_players)
+            best_hand = max_hand 
+            best_score = max_point
+        print("winner hand :",*best_hand,"\nwinner\\s :",*winners)
+
+
+
+
+    def point(self,hand):                         #point()function to calculate partial score
+      sortedHand=sorted(hand,reverse=True)
+      c_sum=0
+      ranklist=[]
+      for card in sortedHand:
+        ranklist.append(card.rank)
+      c_sum=ranklist[0]*13**4+ranklist[1]*13**3+ranklist[2]*13**2+ranklist[3]*13+ranklist[4]
+      return c_sum
+
         
+    def isRoyal (self, hand):               #returns the total_point and prints out 'Royal Flush' if true, if false, pass down to isStraightFlush(hand)
+      sortedHand=sorted(hand,reverse=True)
+      flag=True
+      h=10
+      Cursuit=sortedHand[0].suit
+      Currank=14
+      total_point=h*13**5+self.point(sortedHand)
+      for card in sortedHand:
+        if card.suit!=Cursuit or card.rank!=Currank:
+          flag=False
+          break
+        else:
+          Currank-=1
+      if flag:
+          #print('Royal Flush')
+          return total_point
+      else:
+        return self.isStraightFlush(sortedHand)
+      
+
+    def isStraightFlush (self, hand):       #returns the total_point and prints out 'Straight Flush' if true, if false, pass down to isFour(hand)
+      sortedHand=sorted(hand,reverse=True)
+      flag=True
+      h=9
+      Cursuit=sortedHand[0].suit
+      Currank=sortedHand[0].rank
+      total_point=h*13**5+self.point(sortedHand)
+      for card in sortedHand:
+        if card.suit!=Cursuit or card.rank!=Currank:
+          flag=False
+          break
+        else:
+          Currank-=1
+      if flag:
+        #print ('Straight Flush')
+        return total_point
+      else:
+        return self.isFour(sortedHand)
+
+    def isFour (self, hand):                  #returns the total_point and prints out 'Four of a Kind' if true, if false, pass down to isFull()
+      sortedHand=sorted(hand,reverse=True)
+      flag=True
+      h=8
+      Currank=sortedHand[1].rank               #since it has 4 identical ranks,the 2nd one in the sorted listmust be the identical rank
+      count=0
+      total_point=h*13**5+self.point(sortedHand)
+      for card in sortedHand:
+        if card.rank==Currank:
+          count+=1
+      if not count<4:
+        flag=True
+        #print('Four of a Kind')
+        return total_point
+
+      else:
+        return self.isFull(sortedHand)
+      
+    def isFull (self, hand):                     #returns the total_point and prints out 'Full House' if true, if false, pass down to isFlush()
+      sortedHand=sorted(hand,reverse=True)
+      flag=True
+      h=7
+      total_point=h*13**5+self.point(sortedHand)
+      mylist=[]                                 #create a list to store ranks
+      for card in sortedHand:
+        mylist.append(card.rank)
+      rank1=sortedHand[0].rank                  #The 1st rank and the last rank should be different in a sorted list
+      rank2=sortedHand[-1].rank
+      num_rank1=mylist.count(rank1)
+      num_rank2=mylist.count(rank2)
+      if (num_rank1==2 and num_rank2==3)or (num_rank1==3 and num_rank2==2):
+        flag=True
+        #print ('Full House')
+        return total_point
+        
+      else:
+        flag=False
+        return self.isFlush(sortedHand)
+
+    def isFlush (self, hand):                         #returns the total_point and prints out 'Flush' if true, if false, pass down to isStraight()
+      sortedHand=sorted(hand,reverse=True)
+      flag=True
+      h=6
+      total_point=h*13**5+self.point(sortedHand)
+      Cursuit=sortedHand[0].suit
+      for card in sortedHand:
+        if not(card.suit==Cursuit):
+          flag=False
+          break
+      if flag:
+        #print ('Flush')
+        return total_point
+        
+      else:
+        return self.isStraight(sortedHand)
+
+    def isStraight (self, hand):
+      sortedHand=sorted(hand,reverse=True)
+      flag=True
+      h=5
+      total_point=h*13**5+self.point(sortedHand)
+      Currank=sortedHand[0].rank                        #this should be the highest rank
+      for card in sortedHand:
+        if card.rank!=Currank:
+          flag=False
+          break
+        else:
+          Currank-=1
+      if flag:
+        #print('Straight')
+        return total_point
+        
+      else:
+        return self.isThree(sortedHand)
+          
+    def isThree (self, hand):
+      sortedHand=sorted(hand,reverse=True)
+      flag=True
+      h=4
+      total_point=h*13**5+self.point(sortedHand)
+      Currank=sortedHand[2].rank                    #In a sorted rank, the middle one should have 3 counts if flag=True
+      mylist=[]
+      for card in sortedHand:
+        mylist.append(card.rank)
+      if mylist.count(Currank)==3:
+        flag=True
+        #print ("Three of a Kind")
+        return total_point
+        
+      else:
+        flag=False
+        return self.isTwo(sortedHand)
+          
+    def isTwo (self, hand):                           #returns the total_point and prints out 'Two Pair' if true, if false, pass down to isOne()
+      sortedHand=sorted(hand,reverse=True)
+      flag=True
+      h=3
+      total_point=h*13**5+self.point(sortedHand)
+      rank1=sortedHand[1].rank                        #in a five cards sorted group, if isTwo(), the 2nd and 4th card should have another identical rank
+      rank2=sortedHand[3].rank
+      mylist=[]
+      for card in sortedHand:
+        mylist.append(card.rank)
+      if mylist.count(rank1)==2 and mylist.count(rank2)==2:
+        flag=True
+        #print ("Two Pair")
+        return total_point
+        
+      else:
+        flag=False
+        return self.isOne(sortedHand)
+    
+    def isOne (self, hand):                            #returns the total_point and prints out 'One Pair' if true, if false, pass down to isHigh()
+      sortedHand=sorted(hand,reverse=True)
+      flag=True
+      h=2
+      total_point=h*13**5+self.point(sortedHand)
+      mylist=[]                                       #create an empty list to store ranks
+      mycount=[]                                      #create an empty list to store number of count of each rank
+      for card in sortedHand:
+        mylist.append(card.rank)
+      for each in mylist:
+        count=mylist.count(each)
+        mycount.append(count)
+      if mycount.count(2)==2 and mycount.count(1)==3:  #There should be only 2 identical numbers and the rest are all different
+        flag=True
+        #print ("One Pair")
+        return total_point
+        
+      else:
+        flag=False
+        return self.isHigh(sortedHand)
+
+    def isHigh (self, hand):                          #returns the total_point and prints out 'High Card' 
+      sortedHand=sorted(hand,reverse=True)
+      flag=True
+      h=1
+      total_point=h*13**5+self.point(sortedHand)
+      mylist=[]                                       #create a list to store ranks
+      for card in sortedHand:
+        mylist.append(card.rank)
+      #print ("High Card")
+      return total_point
+
+
 
 
 n = NL_Holdem(200,6)
