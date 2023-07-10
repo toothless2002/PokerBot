@@ -1,7 +1,7 @@
 import random
 import math
 import itertools
-
+import time
 class Poker_Table :
     def __init__(self,number_tables = 6,stack_size_bb = 200,game_type = "NL_Holdem") -> None:
         self.number_tables = number_tables
@@ -118,7 +118,7 @@ class Deck :
 class NL_Holdem:
     def __init__(self,stack_size_bb,number_tables) -> None:
         self.bottom = 0 
-        self.pot = 0 
+        self.pot = 0
         ############################################        neeed to make multi pot 
         self.num_players = 0 
         self.game_status = 0
@@ -160,11 +160,22 @@ class NL_Holdem:
        print(str(player)+" betted "+str(amount)," pot is "+str(self.pot)+"\n")
 
     def one_round_of_betting(self,cur_player,bets:list,in_hand_players:list,bet_amount,last_player_check):
+       end_of_betting = False
        while(True):
-          if (bet_amount >= self.players[cur_player][0]):
+          print(self.players[cur_player][0]," player balance  bet :",bet_amount)
+          if (bet_amount >= self.players[cur_player][0]+bets[cur_player]):
+             if(self.players[cur_player][0] ==  0):
+               cur_player = self.next_player(in_hand_players,cur_player)
+               if (cur_player == last_player_check):
+                  break
+               continue
              print("player" ,cur_player ,"all-in or fold")
              b = input()
              if (b.startswith("fold")):
+                if(len(in_hand_players) == 2):
+                  in_hand_players.remove(cur_player)
+                  end_of_betting = True
+                  break
                 prv_player = cur_player
                 cur_player = self.next_player(in_hand_players,cur_player)
                 in_hand_players.remove(prv_player)
@@ -175,9 +186,11 @@ class NL_Holdem:
                 cur_player = self.next_player(in_hand_players,cur_player)
                 if (cur_player == last_player_check):
                   break
+                continue
              else:
                 print("invalid input")
-          if(bet_amount == 0 or bet_amount == bets[cur_player]):
+                continue
+          elif(bet_amount == 0 or bet_amount == bets[cur_player]):
             print("player ",cur_player, "check or raise")
             b = input()
             if (b.startswith("check")):
@@ -186,17 +199,26 @@ class NL_Holdem:
               if (cur_player == last_player_check):
                   break
             elif (b.startswith("raise")):
-               new_bet = int(b[6:])
+               new_bet
+               if(b.startswith("raise all-in")):
+                 new_bet = self.players[cur_player][0]
+               else:
+                 new_bet = int(b[6:])
                bet_amount = new_bet+bet_amount
-               self.bet(bets,cur_player,bet_amount)
-               bet_amount = self.one_round_of_betting(self.next_player(in_hand_players,cur_player),bets,in_hand_players,bet_amount,cur_player)
+               self.bet(bets,cur_player,new_bet)
+               bet_amount = self.one_round_of_betting(self.next_player(in_hand_players,cur_player),bets,in_hand_players,bet_amount,cur_player)[0]
                break
             else:
                 print("invalid input")
+                continue
           else :
             print("player " ,cur_player , "fold or call or raise")
             b = input()
             if (b.startswith("fold")):
+                if(len(in_hand_players) == 2):
+                  in_hand_players.remove(cur_player)
+                  end_of_betting = True
+                  break
                 prv_player = cur_player
                 cur_player = self.next_player(in_hand_players,cur_player)
                 in_hand_players.remove(prv_player)
@@ -211,20 +233,77 @@ class NL_Holdem:
                if (cur_player == last_player_check):
                   break
             elif (b.startswith("raise")):
-               new_bet = int(b[6:])
+               new_bet = 0
+               if(b.startswith("raise all-in")):
+                 new_bet = self.players[cur_player][0]
+               else:
+                 new_bet = int(b[6:])
                bet_amount = new_bet + bets[cur_player]
                self.bet(bets,cur_player,new_bet)
-               bet_amount = self.one_round_of_betting(self.next_player(in_hand_players,cur_player),bets,in_hand_players,bet_amount,cur_player)
+               bet_amount = self.one_round_of_betting(self.next_player(in_hand_players,cur_player),bets,in_hand_players,bet_amount,cur_player)[0]
                break
             else:
                 print("invalid input")
-       return bet_amount
+                continue
+       not_all_in_players = 0
+       for p in in_hand_players:
+         if(self.players[p][0] > 0 ):
+          not_all_in_players += 1
+       if (not_all_in_players <= 1) :
+         end_of_betting = True
+       return [bet_amount ,end_of_betting]
+    
 
+
+    def find_winner(self,table_cards:list,in_hand_players:list,bets:list):
+        print(*bets)
+        scores = [0]*self.num_players
+        hands = []
+        for i in range(self.num_players):
+          hands.append([])
+        for finial_players in in_hand_players :
+          seven_cards = table_cards.copy()
+          seven_cards.append(self.players[finial_players][3])
+          seven_cards.append(self.players[finial_players][4])
+          five_card_combs = (list(itertools.chain.from_iterable(itertools.combinations(seven_cards,r)for r in range(5,6))))
+          max_point = 0
+          max_hand = []
+          for combs in five_card_combs :
+            combs = sorted(combs,reverse=True)
+            cur_point = self.isRoyal(combs)
+            if(cur_point > max_point):
+              max_point = cur_point
+              max_hand = combs
+          print(finial_players ,"best hand is :  ",*max_hand)
+          scores[finial_players] = max_point
+          hands[finial_players] = max_hand.copy()
+        while(self.pot > 0):
+          best_score = max(scores)
+          winners = []
+          for s in range(self.num_players) :
+            if(scores[s] == best_score):
+              winners.append(s)
+          for p in winners :
+            p_bet = bets[p]
+            p_prize = 0.0
+            for i in range(len(bets)):
+              if (bets[i]>p_bet):
+                bets[i] -= p_bet/len(winners)
+                p_prize = p_prize + p_bet/len(winners)
+              else:
+                p_prize = p_prize + bets[i]/len(winners)
+                bets[i] -= bets[i]/len(winners)
+            self.players[p][0] += p_prize
+            self.pot -= p_prize
+            print("player ",p,"won",p_prize,"now pot is : ",self.pot)
+          for p in winners :
+            scores[p] = 0 
+
+          
             
-
     def deal_hand(self):
         self.deck.shuffle()
-        self.pot = 0 
+        self.pot = 0.0
         bets = [0]*self.num_players
         in_hand_players = []
         in_hand_players_num = 0
@@ -258,45 +337,52 @@ class NL_Holdem:
       ## dael flop 
 
         flop_cards = self.deck.deal_three()
-        print ("flop is",flop_cards[0],flop_cards[1],flop_cards[2])
-        bet_size =self.one_round_of_betting(after_bigblind,bets,in_hand_players,self.stack_size_bb,after_bigblind)
         turn_card = self.deck.deal_one()
-        print ("turn is",turn_card[0])
-        if(smallblind not in in_hand_players):
-           smallblind = self.next_player(in_hand_players,smallblind)
-        bet_size = self.one_round_of_betting(smallblind,bets,in_hand_players ,0,smallblind)
         river_card = self.deck.deal_one()
-        print("river is",river_card[0])
-        if(smallblind not in in_hand_players):
-           smallblind = self.next_player(in_hand_players,smallblind)
-        bet_size = self.one_round_of_betting(smallblind,bets,in_hand_players,0,smallblind)
         table_cards = [flop_cards[0],flop_cards[1],flop_cards[2],turn_card[0],river_card[0]]
-        print("table cards :",*table_cards)
-        best_score=0
-        best_hand = []
-        winners = []
-        for finial_players in in_hand_players :
-          seven_cards = table_cards.copy()
-          seven_cards.append(self.players[finial_players][3])
-          seven_cards.append(self.players[finial_players][4])
-          five_card_combs = (list(itertools.chain.from_iterable(itertools.combinations(seven_cards,r)for r in range(5,6))))
-          max_point = 0 
-          max_hand = []
-          for combs in five_card_combs :
-            combs = sorted(combs,reverse=True)
-            cur_point = self.isRoyal(combs)
-            if(cur_point > max_point):
-              max_point = cur_point
-              max_hand = combs
-          print("best hand is :  ",*max_hand)
-          if (best_score ==  max_point):
-            winners.append(finial_players)
-          if (best_score < max_point):
-            winners.clear()
-            winners.append(finial_players)
-            best_hand = max_hand 
-            best_score = max_point
-        print("winner hand :",*best_hand,"\nwinner\\s :",*winners)
+        print ("flop is",flop_cards[0],flop_cards[1],flop_cards[2])
+        first_round =self.one_round_of_betting(after_bigblind,bets,in_hand_players,self.stack_size_bb,after_bigblind)
+        if(first_round[1]):
+          if(len(in_hand_players) == 1):
+            print("all folded player ",in_hand_players[0],"won pot",self.pot,"without showdown")
+            self.players[in_hand_players[0]][0] += self.pot
+            return
+          else:
+            print ("turn is",turn_card[0])
+            print("river is",river_card[0])
+            self.find_winner(table_cards,in_hand_players,bets)
+            return
+        else:
+          print ("turn is",turn_card[0])
+          if(smallblind not in in_hand_players):
+            smallblind = self.next_player(in_hand_players,smallblind)
+          second_round = self.one_round_of_betting(smallblind,bets,in_hand_players ,first_round[0],smallblind)
+          if(second_round[1]):
+            if(len(in_hand_players) == 1):
+              print("all folded player ",in_hand_players[0],"won pot",self.pot,"without showdown")
+              self.players[in_hand_players[0]][0] += self.pot
+              return
+            else:
+              print("river is",river_card[0])
+              self.find_winner(table_cards,in_hand_players,bets)
+              return
+          else: 
+            print("river is",river_card[0])
+            if(smallblind not in in_hand_players):
+              smallblind = self.next_player(in_hand_players,smallblind)
+            thrd_round = self.one_round_of_betting(smallblind,bets,in_hand_players,second_round[0],smallblind)
+            if(thrd_round[1]):
+              if(len(in_hand_players) == 1):
+                print("all folded player ",in_hand_players[0],"won pot",self.pot,"without showdown")
+                self.players[in_hand_players[0]][0] += self.pot
+                return
+              else:
+                self.find_winner(table_cards,in_hand_players,bets)
+                return
+            else:
+              self.find_winner(table_cards,in_hand_players,bets)                
+            print("table cards :",*table_cards)
+        
 
 
 
@@ -505,7 +591,7 @@ sina = Player("Qane")
 darya = Player("kenar")
 amir = Player("dawsham")
 n.add_player(0,2000,hamid)
-n.add_player(1,2000,parnaz)
-n.add_player(2,3000,mohsen)
-n.add_player(3,3000,sina)
+n.add_player(1,3000,parnaz)
+n.add_player(2,4000,mohsen)
+n.add_player(3,5000,sina)
 n.deal_hand()
