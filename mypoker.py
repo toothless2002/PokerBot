@@ -2,25 +2,36 @@ import random
 import math
 import itertools
 import time
+import telebot
+#15 14 ... check for message in user buffer 
+class User:
+    def __init__(self, chat_id, first_name, last_name,username,id,nickname):
+        self.chat_id = chat_id
+        self.first_name = first_name
+        self.last_name = last_name
+        self.username = username
+        self.balance = 10000
+        self.id = id
+        self.nickname = nickname
 class Poker_Table :
-    def __init__(self,number_tables = 6,stack_size_bb = 200,game_type = "NL_Holdem") -> None:
+    def __init__(self,key,bot:telebot.TeleBot ,number_tables = 6,stack_size_bb = 200,game_type = "NL_Holdem",type ="private") -> None:
         self.number_tables = number_tables
         self.stack_size_bb = stack_size_bb
         self.game_type  = game_type
         self.buy_in_min = 20*stack_size_bb
         self.buy_in_max = 100*stack_size_bb
-        
+        self.type = type
+        self.key = key
+        self.bot = bot
+        self.game = NL_Holdem(stack_size_bb,number_tables,bot)
 
 
 class Player:
-    total_balance  = 0 
     nickname = ""
     current_table = None
-    def __init__(self,nickname) -> None:
-       self.nickname = nickname
-    def inc_balance(self,amount):
-       self.total_balance = self.total_balance + amount
-       return self.total_balance
+    def __init__(self,user) -> None:
+       self.nickname = user.nickname
+       self.user = user
     
 class Suit:
     CLUBS = "♣", "C", "Clubs"
@@ -116,9 +127,11 @@ class Deck :
 
 
 class NL_Holdem:
-    def __init__(self,stack_size_bb,number_tables) -> None:
+    def __init__(self,stack_size_bb,number_tables,bot:telebot.TeleBot) -> None:
+        self.game_title = "Texas Hold'em"
         self.bottom = 0 
         self.pot = 0
+        self.bot = bot
         ############################################        neeed to make multi pot 
         self.num_players = 0 
         self.game_status = 0
@@ -140,11 +153,18 @@ class NL_Holdem:
             if (self.tables[i] == False):
                 sum = sum + 1
         return sum
-    
+    def empty_tables_list(self) -> list:
+      l = []
+      for i in range(self.number_tables):
+        if (self.tables[i] == False):
+          l.append(i+1)
+      return l
     def add_player (self,table_num,balance,player_obj:Player):
         self.players[table_num]=[balance,player_obj,False,"",""]
         self.num_players = self.num_players + 1
         self.game_status = self.game_status + 1
+        self.tables[table_num] = True
+        self.bot.send_message(player_obj.user.id,"message from add player function :)")
         # if (self.game_status == 2):
         #    self.deal_hand()
 
@@ -583,15 +603,15 @@ class NL_Holdem:
 
 
 
-n = NL_Holdem(200,6)
-hamid = Player("harry")
-parnaz = Player("pary")
-mohsen = Player("msn")
-sina = Player("Qane")
-darya = Player("kenar")
-amir = Player("dawsham")
-n.add_player(0,2000,hamid)
-n.add_player(1,3000,parnaz)
-n.add_player(2,4000,mohsen)
-n.add_player(3,5000,sina)
-n.deal_hand()
+# n = NL_Holdem(200,6)
+# hamid = Player("harry")
+# parnaz = Player("pary")
+# mohsen = Player("msn")
+# sina = Player("Qane")
+# darya = Player("kenar")
+# amir = Player("dawsham")
+# n.add_player(0,2000,hamid)
+# n.add_player(1,3000,parnaz)
+# n.add_player(2,4000,mohsen)
+# n.add_player(3,5000,sina)
+# n.deal_hand()
