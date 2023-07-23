@@ -30,6 +30,15 @@ def buy_in_handler(amount,table_number,poker_table,user):
         bot.send_message(user.id,"not enough to buy-in")
     else:
         bot.send_message(user.id,"insuficent balance")
+@bot.message_handler(commands=['hello'])
+def test_fun(message):
+    bot.send_sticker(message.from_user.id,"CAACAgUAAxkBAAEjhopkrPqtrFu47EKa4aA2Zrf7tAAB4iYAAogBAAJa9cBVw84sUD1gdGsvBA")
+    bot.send_photo(message.from_user.id,"AgACAgQAAxkBAAEjhwlkrQZjNfczYWEyR89VVLZ7qRQOZQACHL0xGyEqaVGoRTUf_MxVhQEAAwIAA3gAAy8E")
+    bot.send_media_group(message.from_user.id,[telebot.types.InputMediaPhoto("AgACAgQAAxkBAAEjhu1krQP9nRaYtihJIeO8Zgx6gqULAAMYvDEbQHdpURYjJ4vomcC5AQADAgADeAADLwQ"),
+                                               telebot.types.InputMediaPhoto("AgACAgQAAxkBAAEjhu1krQP9nRaYtihJIeO8Zgx6gqULAAMYvDEbQHdpURYjJ4vomcC5AQADAgADeAADLwQ"),
+                                               telebot.types.InputMediaPhoto("AgACAgQAAxkBAAEjhu1krQP9nRaYtihJIeO8Zgx6gqULAAMYvDEbQHdpURYjJ4vomcC5AQADAgADeAADLwQ"),
+                                               telebot.types.InputMediaPhoto("AgACAgQAAxkBAAEjhu1krQP9nRaYtihJIeO8Zgx6gqULAAMYvDEbQHdpURYjJ4vomcC5AQADAgADeAADLwQ"),
+                                               telebot.types.InputMediaPhoto("AgACAgQAAxkBAAEjhu1krQP9nRaYtihJIeO8Zgx6gqULAAMYvDEbQHdpURYjJ4vomcC5AQADAgADeAADLwQ")],protect_content=True)
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
     if (message.text == "/start"):
