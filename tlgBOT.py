@@ -2,18 +2,38 @@ import os
 import telebot
 from mypoker import NL_Holdem,Poker_Table,Player,User
 import time
+import json
 import string
 import random
+import sqlite3
 
 private_tables = {}
 users = {}
 
-
-bot = telebot.TeleBot( "6324861862:AAFvCIXbYhsjGtzNeG9s49z6sVFZFCXUjsE" ) 
-bot.set_my_commands(commands=[telebot.types.BotCommand('/start','s'),telebot.types.BotCommand('/hello','h'),telebot.types.BotCommand('/addplayer','h'),
+if __name__ == '__main__':
+    bot = telebot.TeleBot( "6324861862:AAFvCIXbYhsjGtzNeG9s49z6sVFZFCXUjsE" ) 
+    bot.set_my_commands(commands=[telebot.types.BotCommand('/start','s'),telebot.types.BotCommand('/hello','h'),telebot.types.BotCommand('/addplayer','h'),
                               telebot.types.BotCommand('/create_private_table','Create Private Table')])
+    users_db = sqlite3.connect('users.db')
+    cursor = users_db.cursor()
+    #cursor.execute('''CREATE TABLE mytable (id INTEGER PRIMARY KEY,chat_id INTEGER, first_name TEXT, last_name TEXT, username TEXT, nickname TEXT)''')
+    cursor.execute("SELECT * FROM mytable")
+    rows = cursor.fetchall()
+    for row in rows:
+        print(row)
+    users_db.commit()
+    users_db.close()
+
+
 def nickname_handler(nickname,message):
     users[message.from_user.id] = User(message.chat.id,message.from_user.first_name,message.from_user.last_name,message.from_user.username,message.from_user.id,nickname.text)
+    users_db1 = sqlite3.connect('users.db')
+    cursor1 = users_db1.cursor()
+    cursor1.execute("INSERT INTO mytable (id, chat_id, first_name, last_name, username, nickname) VALUES (?, ?, ?, ?, ?, ?)",
+                    ((message.from_user.id, message.chat.id,message.from_user.first_name,message.from_user.last_name,message.from_user.username,nickname.text)))
+    users_db1.commit()
+    users_db1.close()
+
     bot.reply_to(nickname,"welcome :)")
 def select_table_handler(table_number,poker_table,user):
     buy_in_message = bot.send_message(user.id,"buy in :"+str(poker_table.buy_in_min)+" - "+str(poker_table.buy_in_max)+
@@ -30,15 +50,32 @@ def buy_in_handler(amount,table_number,poker_table,user):
         bot.send_message(user.id,"not enough to buy-in")
     else:
         bot.send_message(user.id,"insuficent balance")
+
+def test_hello(update):
+    print(update)
+    data = json.loads(update.message.web_app_data.data)
+    for result in data:
+        print(f"{result['name']}: {result['value']}")
+
 @bot.message_handler(commands=['hello'])
 def test_fun(message):
-    bot.send_sticker(message.from_user.id,"CAACAgUAAxkBAAEjhopkrPqtrFu47EKa4aA2Zrf7tAAB4iYAAogBAAJa9cBVw84sUD1gdGsvBA")
-    bot.send_photo(message.from_user.id,"AgACAgQAAxkBAAEjhwlkrQZjNfczYWEyR89VVLZ7qRQOZQACHL0xGyEqaVGoRTUf_MxVhQEAAwIAA3gAAy8E")
-    bot.send_media_group(message.from_user.id,[telebot.types.InputMediaPhoto("AgACAgQAAxkBAAEjhu1krQP9nRaYtihJIeO8Zgx6gqULAAMYvDEbQHdpURYjJ4vomcC5AQADAgADeAADLwQ"),
-                                               telebot.types.InputMediaPhoto("AgACAgQAAxkBAAEjhu1krQP9nRaYtihJIeO8Zgx6gqULAAMYvDEbQHdpURYjJ4vomcC5AQADAgADeAADLwQ"),
-                                               telebot.types.InputMediaPhoto("AgACAgQAAxkBAAEjhu1krQP9nRaYtihJIeO8Zgx6gqULAAMYvDEbQHdpURYjJ4vomcC5AQADAgADeAADLwQ"),
-                                               telebot.types.InputMediaPhoto("AgACAgQAAxkBAAEjhu1krQP9nRaYtihJIeO8Zgx6gqULAAMYvDEbQHdpURYjJ4vomcC5AQADAgADeAADLwQ"),
-                                               telebot.types.InputMediaPhoto("AgACAgQAAxkBAAEjhu1krQP9nRaYtihJIeO8Zgx6gqULAAMYvDEbQHdpURYjJ4vomcC5AQADAgADeAADLwQ")],protect_content=True)
+    k =telebot.types.KeyboardButton("show me gooodlle",web_app=telebot.types.WebAppInfo("https://calixtemayoraz.gitlab.io/web-interfacer-bot/"))
+        
+    m =telebot.types.ReplyKeyboardMarkup()
+    m.add(k)
+    mm =bot.send_message(message.from_user.id,"heey",reply_markup=m)
+    bot.register_callback_query_handler(mm,test_hello)
+    bot.re
+    #bot.send_message(message.from_user.id,"┌─────────┐\n│1        │\n│         │\n│         │\n│    1    │\n│         │\n│         │\n│        1│\n└─────────┘")
+    # bot.send_sticker(message.from_user.id,"CAACAgUAAxkBAAEjhopkrPqtrFu47EKa4aA2Zrf7tAAB4iYAAogBAAJa9cBVw84sUD1gdGsvBA")
+    # bot.send_photo(message.from_user.id,"AgACAgQAAxkBAAEjhwlkrQZjNfczYWEyR89VVLZ7qRQOZQACHL0xGyEqaVGoRTUf_MxVhQEAAwIAA3gAAy8E")
+    # bot.send_media_group(message.from_user.id,[telebot.types.InputMediaPhoto("AgACAgQAAxkBAAEjhu1krQP9nRaYtihJIeO8Zgx6gqULAAMYvDEbQHdpURYjJ4vomcC5AQADAgADeAADLwQ"),
+    #                                            telebot.types.InputMediaPhoto("AgACAgQAAxkBAAEjhu1krQP9nRaYtihJIeO8Zgx6gqULAAMYvDEbQHdpURYjJ4vomcC5AQADAgADeAADLwQ"),
+    #                                            telebot.types.InputMediaPhoto("AgACAgQAAxkBAAEjhu1krQP9nRaYtihJIeO8Zgx6gqULAAMYvDEbQHdpURYjJ4vomcC5AQADAgADeAADLwQ"),
+    #                                            telebot.types.InputMediaPhoto("AgACAgQAAxkBAAEjhu1krQP9nRaYtihJIeO8Zgx6gqULAAMYvDEbQHdpURYjJ4vomcC5AQADAgADeAADLwQ"),
+    #                                            telebot.types.InputMediaPhoto("AgACAgQAAxkBAAEjhu1krQP9nRaYtihJIeO8Zgx6gqULAAMYvDEbQHdpURYjJ4vomcC5AQADAgADeAADLwQ")],protect_content=True)
+
+
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
     if (message.text == "/start"):
