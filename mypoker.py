@@ -146,6 +146,10 @@ class NL_Holdem:
         self.number_tables = number_tables
         self.tables = [False]*number_tables
         self.players = [None]*number_tables
+        self.round_time = 15
+        self.bank_time = 120
+        self.count_down_message = ""
+        self.count_down_flag = False
 
     def empty_tables(self) -> int:
         sum = 0 
@@ -162,8 +166,8 @@ class NL_Holdem:
     def joined_table_message_handler(self,message,table_num,balance,player_obj:Player):
         if(message.text == "start dealing hands"):
           self.game_status = 2
+          self.bot.send_message(player_obj.user.id,"dealing")
           self.deal_hand()
-          self.bot.send_message(player_obj.user.id,"dealing")  
     def add_player (self,table_num,balance,player_obj:Player):
         self.players[table_num]=[balance,player_obj,False,"",""]
         self.num_players = self.num_players + 1
@@ -195,18 +199,39 @@ class NL_Holdem:
        self.pot = self.pot + amount 
        print(str(player)+" betted "+str(amount)," pot is "+str(self.pot)+"\n")
 
+    def count_down_handler(self,mess):
+      if (self.count_down_flag == False):
+        self.count_down_flag = True
+        self.count_down_message = mess.text
+      
+    def count_down(self,id):
+      time_message = self.bot.send_message(id,str(self.round_time),disable_notification=True)
+      for i in range(0,self.round_time):
+          time.sleep(1)
+          self.bot.register_next_step_handler(time_message,self.count_down_handler)
+          self.bot.delete_message(time_message.chat.id,time_message.message_id)
+          if(self.count_down_flag):
+            self.count_down_flag = False
+            return self.count_down_message
+          time_message = self.bot.send_message(id,str(self.round_time-i-1),disable_notification=True)
+      self.bot.delete_message(time_message.chat.id,time_message.message_id)
+      self.bot.send_message(id,"default action taken")
+      return "default action"
+
     def one_round_of_betting(self,cur_player,bets:list,in_hand_players:list,bet_amount,last_player_check):
        end_of_betting = False
        while(True):
           print(self.players[cur_player][0]," player balance  bet :",bet_amount)
+          joined_table_message = self.bot.send_message(self.players[cur_player][1].user.id," your balance is  :"+str(self.players[cur_player][0])+
+                                                       "\nbet is "+str(bet_amount))  
           if (bet_amount >= self.players[cur_player][0]+bets[cur_player]):
              if(self.players[cur_player][0] ==  0):
                cur_player = self.next_player(in_hand_players,cur_player)
                if (cur_player == last_player_check):
                   break
                continue
-             print("player" ,cur_player ,"all-in or fold")
-             b = input()
+             input_message = self.bot.send_message(self.players[cur_player][1].user.id,"all-in or fold")
+             b = self.count_down(self.players[cur_player][1].user.id)
              if(b == "default action"):
                b = "fold"
              if (b.startswith("fold")):
@@ -229,8 +254,8 @@ class NL_Holdem:
                 print("invalid input")
                 continue
           elif(bet_amount == 0 or bet_amount == bets[cur_player]):
-            print("player ",cur_player, "check or raise")
-            b = input()
+            input_message = self.bot.send_message(self.players[cur_player][1].user.id,"check or raise")
+            b = self.count_down(self.players[cur_player][1].user.id)
             if(b == "default action"):
                b = "check"
             if (b.startswith("check")):
@@ -239,7 +264,7 @@ class NL_Holdem:
               if (cur_player == last_player_check):
                   break
             elif (b.startswith("raise")):
-               new_bet
+               new_bet = 0
                if(b.startswith("raise all-in")):
                  new_bet = self.players[cur_player][0]
                else:
@@ -252,8 +277,8 @@ class NL_Holdem:
                 print("invalid input")
                 continue
           else :
-            print("player " ,cur_player , "fold or call or raise")
-            b = input()
+            input_message = self.bot.send_message(self.players[cur_player][1].user.id,"fold or call or raise")
+            b = self.count_down(self.players[cur_player][1].user.id)
             if(b == "default action"):
                b = "fold"
             if (b.startswith("fold")):
@@ -295,13 +320,16 @@ class NL_Holdem:
          end_of_betting = True
        return [bet_amount ,end_of_betting]
     
-
+    def send_message_all(self,message):
+      for p in self.players :
+        if (p != None):
+          self.bot.send_message(p[1].user.id,message)
 
     def find_winner(self,table_cards:list,in_hand_players:list,bets:list):
         print(*bets)
-        scores = [0]*self.num_players
+        scores = [0]*self.number_tables
         hands = []
-        for i in range(self.num_players):
+        for i in range(self.number_tables):
           hands.append([])
         for finial_players in in_hand_players :
           seven_cards = table_cards.copy()
@@ -316,13 +344,17 @@ class NL_Holdem:
             if(cur_point > max_point):
               max_point = cur_point
               max_hand = combs
-          print(finial_players ,"best hand is :  ",*max_hand)
+          print(finial_players ," best hand is :  ",*max_hand)
+          hand_str = ""
+          for h in max_hand:
+            hand_str = hand_str + str(h)+"  "
+          self.send_message_all(str(finial_players+1) +" best hand is :   " + hand_str)
           scores[finial_players] = max_point
           hands[finial_players] = max_hand.copy()
         while(self.pot > 0):
           best_score = max(scores)
           winners = []
-          for s in range(self.num_players) :
+          for s in range(self.number_tables) :
             if(scores[s] == best_score):
               winners.append(s)
           for p in winners :
@@ -338,6 +370,7 @@ class NL_Holdem:
             self.players[p][0] += p_prize
             self.pot -= p_prize
             print("player ",p,"won",p_prize,"now pot is : ",self.pot)
+            self.send_message_all("player "+str(p+1)+" won "+str(p_prize)+" now pot is :  "+str(self.pot))
           for p in winners :
             scores[p] = 0 
 
@@ -390,51 +423,64 @@ class NL_Holdem:
         if(before_flop_round[1]):
           if(len(in_hand_players) == 1):
             print("all folded player ",in_hand_players[0],"won pot",self.pot,"pre flop")
+            self.send_message_all("all folded player "+str(in_hand_players[0]+1)+" won pot "+str(self.pot)+" pre flop")
             self.players[in_hand_players[0]][0] += self.pot
             return
           else:
             print ("flop is",flop_cards[0],flop_cards[1],flop_cards[2])
             print ("turn is",turn_card[0])
             print("river is",river_card[0])
+            self.send_message_all("flop is "+str(flop_cards[0])+" "+str(flop_cards[1])+" "+str(flop_cards[2]))
+            self.send_message_all("turn is "+str(turn_card[0]))
+            self.send_message_all("river is "+str(river_card[0]))
             self.find_winner(table_cards,in_hand_players,bets)
             return
         else:
           print ("flop is",flop_cards[0],flop_cards[1],flop_cards[2])
+          self.send_message_all("flop is "+str(flop_cards[0])+" "+str(flop_cards[1])+" "+str(flop_cards[2]))
           if(smallblind not in in_hand_players):
               smallblind = self.next_player(in_hand_players,smallblind)
           first_round =self.one_round_of_betting(smallblind,bets,in_hand_players,before_flop_round[0],smallblind)
           if(first_round[1]):
             if(len(in_hand_players) == 1):
               print("all folded player ",in_hand_players[0],"won pot",self.pot,"without showdown post flop")
+              self.send_message_all("all folded player "+str(in_hand_players[0]+1)+" won pot "+str(self.pot)+" without showdown post flop")
               self.players[in_hand_players[0]][0] += self.pot
               return
             else:
-              print ("turn is",turn_card[0])
-              print("river is",river_card[0])
+              print ("turn is ",turn_card[0])
+              print("river is ",river_card[0])
+              self.send_message_all("turn is "+str(turn_card[0]))
+              self.send_message_all("river is "+str(river_card[0]))
               self.find_winner(table_cards,in_hand_players,bets)
               return
           else:
             print ("turn is",turn_card[0])
+            self.send_message_all("turn is "+str(turn_card[0]))
             if(smallblind not in in_hand_players):
               smallblind = self.next_player(in_hand_players,smallblind)
             second_round = self.one_round_of_betting(smallblind,bets,in_hand_players ,first_round[0],smallblind)
             if(second_round[1]):
               if(len(in_hand_players) == 1):
                 print("all folded player ",in_hand_players[0],"won pot",self.pot,"without showdown after turn")
+                self.send_message_all("all folded player "+str(in_hand_players[0]+1)+" won pot "+str(self.pot)+" without showdown after turn")
                 self.players[in_hand_players[0]][0] += self.pot
                 return
               else:
                 print("river is",river_card[0])
+                self.send_message_all("river is "+str(river_card[0]))
                 self.find_winner(table_cards,in_hand_players,bets)
                 return
             else: 
               print("river is",river_card[0])
+              self.send_message_all("river is"+str(river_card[0]))
               if(smallblind not in in_hand_players):
                 smallblind = self.next_player(in_hand_players,smallblind)
               thrd_round = self.one_round_of_betting(smallblind,bets,in_hand_players,second_round[0],smallblind)
               if(thrd_round[1]):
                 if(len(in_hand_players) == 1):
                   print("all folded player ",in_hand_players[0],"won pot",self.pot,"without showdown after river")
+                  self.send_message_all("all folded player "+str(in_hand_players[0]+1)+" won pot "+str(self.pot)+" without showdown after river")
                   self.players[in_hand_players[0]][0] += self.pot
                   return
                 else:

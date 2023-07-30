@@ -20,6 +20,7 @@ if __name__ == '__main__':
     cursor.execute("SELECT * FROM mytable")
     rows = cursor.fetchall()
     for row in rows:
+        users[row[0]] = User(row[1],row[2],row[3],row[4],row[0],row[5])
         print(row)
     users_db.commit()
     users_db.close()
@@ -225,5 +226,8 @@ def echo_all(message):
 #         bot.polling(none_stop=True, interval=0, timeout=0)
 #     except:
 #         time.sleep(10)
+
+
+
 
 bot.infinity_polling()
